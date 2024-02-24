@@ -15,8 +15,9 @@ cd ~
 rm -rf .profile .bashrc .bash_history .zshrc .zprofile .zcompdump* .oh-my-zsh
 cp -r skel/skel/.* .
 rm -r /etc/skel
-cp -r /skel/skel /etc
+cp -r skel/skel /etc
 rm -r skel
+omz reload
 
 # make fd-find and bat aliases
 ln -s $(which fdfind) ~/.local/bin/fd
