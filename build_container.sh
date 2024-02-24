@@ -48,3 +48,8 @@ echo 'Change owner to $USER'
 docker exec -it $CONTAINER_NAME chown $USER:$USER /home/$USER/
 docker exec -it $CONTAINER_NAME chown -R $USER:$USER /home/$USER/.ssh
 docker exec -it $CONTAINER_NAME chown -R $USER:$USER /home/$USER/$M_DIR
+
+echo 'make fd-find and bat aliases'
+mkdir ~/.local/bin
+ln -s $(which fdfind) ~/.local/bin/fd
+ln -s $(which batcat) ~/.local/bin/bat

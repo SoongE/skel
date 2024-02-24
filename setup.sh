@@ -10,6 +10,14 @@ sh -c "$(wget https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 chsh -s $(which zsh) $USER
 
+# paste skel files
+cd ~
+rm -rf .profile .bashrc .bash_history .zshrc .zprofile .zcompdump* .oh-my-zsh
+cp -r skel/skel/.* .
+rm -r /etc/skel
+cp -r /skel/skel /etc
+rm -r skel
+
 # make fd-find and bat aliases
 ln -s $(which fdfind) ~/.local/bin/fd
 ln -s $(which batcat) ~/.local/bin/bat
