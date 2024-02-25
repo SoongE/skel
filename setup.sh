@@ -1,6 +1,6 @@
 apt-get -y update; apt-get -y upgrade;
 
-apt-get -y install ssh sshfs openssh-server sudo git tree zsh tmux zip rsync systemd vim wget curl tzdata autojump language-pack-en miller fd-find bat
+apt-get -y install ssh sshfs openssh-server sudo git tree zsh tmux zip rsync systemd vim wget curl tzdata autojump language-pack-en miller fd-find bat libgl1-mesa-glx ffmpeg libsm6 libxext6
 
 apt-get clean autoclean; apt-get -y autoremove --purge
 
@@ -24,4 +24,4 @@ ln -s $(which fdfind) ~/.local/bin/fd
 ln -s $(which batcat) ~/.local/bin/bat
 
 echo Todo
-echo '1. Modify sshd_config\n 2. Make "/data" folder\n 3. Add skel'
+echo '1. Modify sshd_config\n 2. Make "/data" folder'
