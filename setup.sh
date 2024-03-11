@@ -1,6 +1,6 @@
 apt-get -y update; apt-get -y upgrade;
 
-apt-get -y install ssh sshfs openssh-server sudo git tree zsh tmux zip rsync systemd vim wget curl tzdata autojump language-pack-en miller fd-find bat libgl1-mesa-glx ffmpeg libsm6 libxext6 iotop iftop
+apt-get -y install ssh sshfs openssh-server sudo git tree zsh tmux zip rsync systemd vim wget curl tzdata autojump language-pack-en miller fd-find bat libgl1-mesa-glx ffmpeg libsm6 libxext6 iotop iftop imagemagick ranger
 
 apt-get clean autoclean; apt-get -y autoremove --purge
 
@@ -12,6 +12,7 @@ chsh -s $(which zsh) $USER
 
 # paste skel files
 cd ~
+git clone https://github.com/SoongE/skel.git
 rm -rf .profile .bashrc .bash_history .zshrc .zprofile .zcompdump* .oh-my-zsh
 cp -r skel/skel/.* .
 rm -r /etc/skel
