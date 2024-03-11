@@ -1,8 +1,8 @@
 export ZSH="$HOME/.oh-my-zsh"
-export CUDA_DEVICE_ORDER=PCI_BUS_ID
+export CUDA_DEVICE_ORDER="PCI_BUS_ID"
+export NCCL_P2P_LEVEL="NVL"
 export LC_CTYPE="en_US.UTF-8"
-export PATH=/usr/local/cuda-12.4/bin:$PATH
-export LD_LIBRARY_PATH=/usr/local/cuda-12.4/lib64:$LD_LIBRARY_PATH
+export DISABLE_AUTO_TITLE="true"
 
 ZSH_THEME="agnoster"
 

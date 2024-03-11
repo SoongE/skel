@@ -12,8 +12,12 @@ if [ -d "$HOME/.local/bin" ] ; then
     PATH="$HOME/.local/bin:$PATH"
 fi
 
-if [ -d "/usr/local/cuda/bin" ] ; then
-        PATH="/usr/local/cuda/bin:$PATH"
+if [ -d "/usr/local/cuda-12.4/bin" ] ; then
+        PATH="/usr/local/cuda-12.4/bin:$PATH"
+fi
+
+if [ -d "/usr/local/cuda-12.4/lib64" ] ; then
+        LD_LIBRARY_PATH="/usr/local/cuda-12.4/lib64:$LD_LIBRARY_PATH"
 fi
 
 if [ -f ~/.aliases ]; then
