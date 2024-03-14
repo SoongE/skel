@@ -1,11 +1,11 @@
 apt-get -y update; apt-get -y upgrade;
 
-apt-get -y install ssh sshfs openssh-server sudo git tree zsh tmux zip rsync systemd vim wget curl tzdata autojump language-pack-en miller fd-find bat iotop iftop imagemagick ranger
+apt-get -y install ssh sshfs openssh-server sudo git tree zsh tmux zip rsync systemd vim wget curl tzdata autojump language-pack-en miller fd-find bat iotop iftop imagemagick ranger progress
 # apt-get -y install build-essential ffmpeg libsm6 libxext6 libudev-dev libncurses* texlive-full libgl1-mesa-glx
 
 apt-get clean autoclean; apt-get -y autoremove --purge
 
-pip install --upgrade transformers timm wandb einops tmuxp nvitop lightning torchmetrics ujson hydra-core captum seaborn deepspeed datasets wilds accelerate open_clip_torch
+pip install --upgrade transformers timm wandb einops tmuxp nvitop lightning torchmetrics ujson hydra-core captum seaborn deepspeed datasets wilds accelerate open_clip_torch img2dataset 
 
 sh -c "$(wget https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh -O -)"
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
@@ -19,6 +19,7 @@ cp -r skel/skel/.* .
 rm -r /etc/skel
 cp -r skel/skel /etc
 cp -r .oh-my-zsh /etc/skel
+cp skel/HelveticaFont/* /usr/local/lib/python3.10/dist-packages/matplotlib/mpl-data/fonts/ttf
 rm -r skel
 omz reload
 
