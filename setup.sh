@@ -1,6 +1,6 @@
 apt-get -y update; apt-get -y upgrade;
 
-apt-get -y install ssh sshfs openssh-server sudo git tree zsh tmux zip rsync systemd vim wget curl tzdata autojump language-pack-en miller fd-find bat iotop iftop imagemagick ranger progress net-tools lsof libgl1-mesa-glx libglib2.0-0
+apt-get -y install ssh sshfs openssh-server sudo git tree zsh tmux zip rsync systemd vim wget curl tzdata autojump language-pack-en miller fd-find bat iotop iftop imagemagick ranger progress net-tools lsof libgl1-mesa-glx libglib2.0-0 libaio-dev
 # apt-get -y install build-essential ffmpeg libsm6 libxext6 libudev-dev libncurses* texlive-full
 
 apt-get clean autoclean; apt-get -y autoremove --purge
