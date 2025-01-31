@@ -10,5 +10,6 @@ ZSH_THEME="agnoster"
 HYPHEN_INSENSITIVE="true"
 
 plugins=(git zsh-syntax-highlighting autojump)
+zstyle ':omz:update' verbose silent
 
 source $ZSH/oh-my-zsh.sh
