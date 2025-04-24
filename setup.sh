@@ -5,7 +5,8 @@ apt-get -y install ssh sshfs openssh-server sudo git tree zsh tmux zip rsync sys
 
 apt-get clean autoclean; apt-get -y autoremove --purge
 
-pip install --upgrade transformers timm wandb einops tmuxp nvitop lightning torchmetrics ujson hydra-core captum seaborn deepspeed datasets wilds accelerate open_clip_torch img2dataset jupyterlab
+pip install --upgrade transformers timm wandb einops tmuxp nvitop torchmetrics ujson hydra-core captum seaborn deepspeed datasets wilds accelerate open_clip_torch img2dataset jupyterlab
+pip install --no-deps lightning
 
 sh -c "$(wget https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh -O -)"
 chsh -s $(which zsh) $USER
