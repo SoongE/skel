@@ -15,7 +15,19 @@ ZSH_THEME="agnoster"
 # CASE_SENSITIVE="true"
 HYPHEN_INSENSITIVE="true"
 
-plugins=(git zsh-syntax-highlighting autojump)
+plugins=(git zsh-syntax-highlighting autojump virtualenv)
 zstyle ':omz:update' verbose silent
 
 source $ZSH/oh-my-zsh.sh
+
+# For virtualenv prompt naming
+prompt_virtualenv() {
+  if [[ -n "$VIRTUAL_ENV" && -n "$VIRTUAL_ENV_DISABLE_PROMPT" ]]; then
+    local venv_name
+    if [[ -f "$VIRTUAL_ENV/pyvenv.cfg" ]]; then
+      venv_name=$(grep -i '^prompt' "$VIRTUAL_ENV/pyvenv.cfg" | cut -d= -f2 | xargs)
+    fi
+    [[ -z "$venv_name" ]] && venv_name="${VIRTUAL_ENV:t}"
+    prompt_segment blue black "(${venv_name:gs/%/%%})"
+  fi
+}
