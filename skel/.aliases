@@ -1,5 +1,5 @@
-alias dai='docker attach seungminDockImp'
-alias das='docker attach seungminDock'
+alias dai='docker exec -it seungminDockImp bash'
+alias das='docker exec -it seungminDock bash'
 alias dim='docker images'
 alias dps='docker ps -a'
 

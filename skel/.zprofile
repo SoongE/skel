@@ -19,5 +19,3 @@ fi
 if [ -f ~/.aliases ]; then
     . ~/.aliases
 fi
-
-service ssh start
