@@ -31,3 +31,5 @@ prompt_virtualenv() {
     prompt_segment blue black "(${venv_name:gs/%/%%})"
   fi
 }
+
+source ~/.base_venv/bin/activate
