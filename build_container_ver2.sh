@@ -13,6 +13,7 @@ IMAGE_NAME=$4
 PASSWORD=1234
 
 MY_UID=$(/usr/bin/id -u)
+MY_GID=$(/usr/bin/id -g)
 SHARED_GID=$(getent group shared | cut -d: -f3)
 
 M_DIR=dmount
@@ -55,7 +56,8 @@ apt-get -y install --no-install-recommends \
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 
-useradd -m -u $MY_UID -s /bin/zsh $USER
+groupadd -g $MY_GID $USER
+useradd -m -u $MY_UID -g $MY_GID -s /bin/zsh $USER
 groupadd --gid $SHARED_GID shared
 usermod -aG sudo,shared $USER
 echo '$USER:$PASSWORD' | chpasswd
