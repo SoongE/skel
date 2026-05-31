@@ -1,7 +1,16 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ $# -lt 4 ]; then
+    echo "Usage: $0 <container_name> <host_name> <port> <image_name>"
+    exit 1
+fi
+
 CONTAINER_NAME=$1
 HOST_NAME=$2
 PORT=$3
 IMAGE_NAME=$4
+PASSWORD=1234
 
 my_uid=$(/usr/bin/id -u)
 shared_gid=$(getent group shared | cut -d: -f3)
@@ -10,46 +19,53 @@ M_DIR=dmount
 PRIVATE=/home/$USER/$M_DIR
 SHARED=/var/shared
 
-mkdir $PRIVATE
-cp /home/$USER/.ssh/authorized_keys $PRIVATE/authorized_keys
+mkdir -p $PRIVATE
 
-docker run --gpus all --ipc=host --shm-size=10g --ulimit memlock=-1 --ulimit stack=67108864 --privileged --hostname $HOST_NAME --name $CONTAINER_NAME --restart unless-stopped -p $PORT:33 -v $PRIVATE:$PRIVATE -v $SHARED:/home/$USER/shared -itd $IMAGE_NAME /bin/zsh
+docker run --gpus all \
+  --ipc=host \
+  --pid=host \
+  --shm-size=10g \
+  --ulimit memlock=-1 --ulimit stack=67108864 \
+  --hostname $HOST_NAME --name $CONTAINER_NAME \
+  -p $PORT:33 \
+  -v $PRIVATE:$PRIVATE \
+  -v $SHARED:/home/$USER/shared \
+  -v /home/$USER/.cache:/home/$USER/.cache \
+  -v /home/$USER/.ssh:/home/$USER/.ssh:ro \
+  -v /etc/localtime:/etc/localtime:ro \
+  -v /tmp:/tmp \
+  -e TZ=Asia/Seoul \
+  -itd $IMAGE_NAME /bin/zsh
 
-echo 'Add shared group'
-docker exec -it $CONTAINER_NAME adduser -uid $my_uid $USER
-docker exec -it $CONTAINER_NAME groupadd --gid $shared_gid shared
+dexec() {
+    docker exec $CONTAINER_NAME bash -c "$1"
+}
 
-echo 'Set sudo user permission and shared foler access'
-docker exec -it $CONTAINER_NAME usermod -aG sudo $USER
-docker exec -it $CONTAINER_NAME usermod -aG shared $USER
+echo 'Add user and shared group'
+dexec "adduser -uid $my_uid $USER"
+dexec "groupadd --gid $shared_gid shared"
 
-echo 'Make .ssh foler and give user permission'
-docker exec -it $CONTAINER_NAME mkdir /home/$USER/.ssh && chown -R $USER:$USER /home/$USER/.ssh
+echo 'Set user password'
+dexec "echo '$USER:$PASSWORD' | chpasswd"
 
-echo 'Copy user public key from server to container'
-docker exec -it $CONTAINER_NAME cp /home/$USER/$M_DIR/authorized_keys /home/$USER/.ssh/authorized_keys
+echo 'Set sudo and shared folder permission'
+dexec "usermod -aG sudo $USER && usermod -aG shared $USER"
 
-echo 'Change .ssh folder and public key permission'
-docker exec -it $CONTAINER_NAME chmod 700 /home/$USER/.ssh && chmod 600 /home/$USER/.ssh/authorized_keys
+echo 'Copy skel and set zsh as default'
+dexec "cp -r /etc/skel /home/$USER/skel \
+       && chown -R $USER:$USER /home/$USER/skel \
+       && mv /home/$USER/skel/.* /home/$USER/ 2>/dev/null || true \
+       && rm -rf /home/$USER/skel \
+       && usermod -s /bin/zsh $USER"
 
-echo 'Copy skel'
-docker exec -it $CONTAINER_NAME bash -c "cp -r /etc/skel /home/$USER"
+echo 'Final ownership fix'
+dexec "chown $USER:$USER /home/$USER/ \
+       && chown -R $USER:$USER /home/$USER/$M_DIR"
 
-echo 'Modify owner of skel'
-docker exec -it $CONTAINER_NAME bash -c "chown -R $USER:$USER /home/$USER/skel"
+echo 'Make fd-find and bat aliases inside container'
+dexec "mkdir -p /home/$USER/.local/bin \
+       && command -v fdfind >/dev/null && ln -sf \$(which fdfind) /home/$USER/.local/bin/fd || true \
+       && command -v batcat >/dev/null && ln -sf \$(which batcat) /home/$USER/.local/bin/bat || true \
+       && chown -R $USER:$USER /home/$USER/.local"
 
-echo 'Move skel'
-docker exec -it $CONTAINER_NAME bash -c "mv /home/$USER/skel/.* /home/$USER; rm -rf /home/$USER/skel"
-
-echo 'Make zsh default'
-docker exec -it $CONTAINER_NAME bash -c "usermod -s /bin/zsh $USER"
-
-echo 'Change owner to $USER'
-docker exec -it $CONTAINER_NAME chown $USER:$USER /home/$USER/
-docker exec -it $CONTAINER_NAME chown -R $USER:$USER /home/$USER/.ssh
-docker exec -it $CONTAINER_NAME chown -R $USER:$USER /home/$USER/$M_DIR
-
-echo 'make fd-find and bat aliases'
-mkdir -p ~/.local/bin
-ln -s $(which fdfind) ~/.local/bin/fd
-ln -s $(which batcat) ~/.local/bin/bat
+echo "Done! Container '$CONTAINER_NAME' is ready on port $PORT."
