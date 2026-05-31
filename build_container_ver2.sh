@@ -85,8 +85,8 @@ sudo env "PATH=$PATH" uv pip install --system --break-system-packages nvitop tmu
 
 # Base venv with torch
 cd ~
-uv venv .base_venv --prompt base
-uv pip install --python .base_venv/bin/python torch numpy transformers timm wandb einops datasets accelerate jupyterlab --torch-backend=auto
+uv venv .venv --prompt base
+uv pip install --python .venv/bin/python torch numpy transformers timm wandb einops datasets accelerate jupyterlab --torch-backend=auto
 
 # Oh-my-zsh (unattended) + syntax-highlighting
 RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended

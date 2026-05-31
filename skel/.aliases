@@ -14,3 +14,6 @@ alias xl='tmuxp load'
 alias pp='mlr --icsv --opprint --barred cat'
 alias ppl='mlr --l2c --opprint --barred cat'
 alias rs='rsync -avh'
+
+alias ur='uv run python'
+alias so='source ~/.venv/bin/activate'
