@@ -12,60 +12,106 @@ PORT=$3
 IMAGE_NAME=$4
 PASSWORD=1234
 
-my_uid=$(/usr/bin/id -u)
-shared_gid=$(getent group shared | cut -d: -f3)
+MY_UID=$(/usr/bin/id -u)
+MY_GID=$(/usr/bin/id -g)
+SHARED_GID=$(getent group shared | cut -d: -f3)
 
 M_DIR=dmount
 PRIVATE=/home/$USER/$M_DIR
 SHARED=/var/shared
 
-mkdir -p $PRIVATE
+mkdir -p "$PRIVATE"
 
+# ---------- 1. Launch container ----------
+echo "====> Launching container '$CONTAINER_NAME'"
 docker run --gpus all \
-  --ipc=host \
-  --pid=host \
+  --ipc=host --pid=host \
   --shm-size=10g \
   --ulimit memlock=-1 --ulimit stack=67108864 \
-  --hostname $HOST_NAME --name $CONTAINER_NAME \
-  -p $PORT:33 \
-  -v $PRIVATE:$PRIVATE \
-  -v $SHARED:/home/$USER/shared \
+  --hostname "$HOST_NAME" --name "$CONTAINER_NAME" \
+  -p "$PORT":33 \
+  -v "$PRIVATE":"$PRIVATE" \
+  -v "$SHARED":/home/$USER/shared \
   -v /home/$USER/.cache:/home/$USER/.cache \
-  -v /home/$USER/.ssh:/home/$USER/.ssh:ro \
-  -v /etc/localtime:/etc/localtime:ro \
+  -v /home/$USER/.ssh:/home/$USER/.ssh \
   -v /tmp:/tmp \
   -e TZ=Asia/Seoul \
-  -itd $IMAGE_NAME /bin/zsh
+  -itd "$IMAGE_NAME" /bin/bash -c "service ssh start; sleep infinity"
 
-dexec() {
-    docker exec $CONTAINER_NAME bash -c "$1"
-}
+# ---------- 2. Root setup (single exec) ----------
+echo "====> Root setup: apt, user, sudo"
+docker exec "$CONTAINER_NAME" bash -euo pipefail -c "
+export DEBIAN_FRONTEND=noninteractive
 
-echo 'Add user and shared group'
-dexec "adduser -uid $my_uid $USER"
-dexec "groupadd --gid $shared_gid shared"
+# Pre-configure timezone
+ln -sf /usr/share/zoneinfo/Asia/Seoul /etc/localtime
+echo 'Asia/Seoul' > /etc/timezone
 
-echo 'Set user password'
-dexec "echo '$USER:$PASSWORD' | chpasswd"
+apt-get update
+apt-get -y install --no-install-recommends \
+  sudo ssh sshfs openssh-server git tree zsh tmux zip rsync systemd vim \
+  wget curl ca-certificates tzdata autojump language-pack-en miller \
+  fd-find bat iotop iftop progress net-tools lsof \
+  libglib2.0-0 libaio-dev libnccl2 libnccl-dev
+apt-get clean
+rm -rf /var/lib/apt/lists/*
 
-echo 'Set sudo and shared folder permission'
-dexec "usermod -aG sudo $USER && usermod -aG shared $USER"
+groupadd -g $MY_GID $USER
+useradd -m -u $MY_UID -g $MY_GID -s /bin/zsh $USER
+groupadd --gid $SHARED_GID shared
+usermod -aG sudo,shared $USER
+echo '$USER:$PASSWORD' | chpasswd
 
-echo 'Copy skel and set zsh as default'
-dexec "cp -r /etc/skel /home/$USER/skel \
-       && chown -R $USER:$USER /home/$USER/skel \
-       && mv /home/$USER/skel/.* /home/$USER/ 2>/dev/null || true \
-       && rm -rf /home/$USER/skel \
-       && usermod -s /bin/zsh $USER"
+# Passwordless sudo for the rest of setup
+echo '$USER ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/$USER
+chmod 440 /etc/sudoers.d/$USER
 
-echo 'Final ownership fix'
-dexec "chown $USER:$USER /home/$USER/ \
-       && chown -R $USER:$USER /home/$USER/$M_DIR"
+chown $USER:$USER /home/$USER
+chown -R $USER:$USER /home/$USER/$M_DIR
 
-echo 'Make fd-find and bat aliases inside container'
-dexec "mkdir -p /home/$USER/.local/bin \
-       && command -v fdfind >/dev/null && ln -sf \$(which fdfind) /home/$USER/.local/bin/fd || true \
-       && command -v batcat >/dev/null && ln -sf \$(which batcat) /home/$USER/.local/bin/bat || true \
-       && chown -R $USER:$USER /home/$USER/.local"
+# Make sshd listen on port 33 (matches '-p \$PORT:33')
+echo 'Port 33' > /etc/ssh/sshd_config.d/port.conf
+
+service ssh restart
+"
+
+# ---------- 3. User setup (single exec as $USER) ----------
+echo "====> User setup: uv, venv, oh-my-zsh, dotfiles"
+docker exec -u "$USER" -w "/home/$USER" -e HOME="/home/$USER" "$CONTAINER_NAME" bash -euo pipefail -c '
+# UV + system tools
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+sudo env "PATH=$PATH" uv pip install --system --break-system-packages nvitop tmuxp --torch-backend=auto
+
+# Base venv with torch
+cd ~
+uv venv .venv --prompt base
+uv pip install --python .venv/bin/python torch numpy transformers timm wandb einops datasets accelerate jupyterlab --torch-backend=auto
+
+# Oh-my-zsh (unattended) + syntax-highlighting
+RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting.git \
+  ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+
+# Dotfiles from SoongE/skel
+git clone --depth=1 https://github.com/SoongE/skel.git
+rm -rf .profile .bashrc .bash_history .zshrc .zprofile .zcompdump*
+cp -rT skel/skel .
+sudo rm -rf /etc/skel
+sudo cp -r skel/skel /etc/skel
+sudo cp -r .oh-my-zsh /etc/skel
+sudo mkdir -p /usr/share/fonts/truetype/
+sudo mv skel/helvetica-neue /usr/share/fonts/truetype/
+rm -rf skel
+
+# fd / bat shims
+mkdir -p ~/.local/bin
+ln -sf "$(command -v fdfind)" ~/.local/bin/fd
+ln -sf "$(command -v batcat)" ~/.local/bin/bat
+'
+
+# ---------- 4. Restore password-required sudo ----------
+echo "====> Restoring password-required sudo"
+docker exec "$CONTAINER_NAME" rm -f "/etc/sudoers.d/$USER"
 
 echo "Done! Container '$CONTAINER_NAME' is ready on port $PORT."
