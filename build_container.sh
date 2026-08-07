@@ -88,7 +88,6 @@ PermitRootLogin no
 UsePAM yes
 EOF
 
-sshd -t
 service ssh restart
 "
 
