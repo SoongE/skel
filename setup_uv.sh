@@ -11,7 +11,7 @@ uv pip install --system --break-system-packages hf_transfer nvitop tmuxp --torch
 
 # Setup default venv and install default torch depend on system cuda version
 uv venv .base_venv --prompt base
-uv pip install --python .base_venv/bin/python hf_transfer numpy torch --torch-backend=auto
+uv pip install --python .base_venv/bin/python hf_transfer numpy torch ipykernel --torch-backend=auto
 
 # Setup zsh
 sh -c "$(wget https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh -O -)"
