@@ -17,4 +17,4 @@ alias rs='rsync -avhP'
 alias rsp='rsync -ah --partial --info=progress2 --stats'
 
 alias ur='uv run python'
-alias so='source ~/.venv/bin/activate'
+alias so='source ~/.base_venv/bin/activate'
