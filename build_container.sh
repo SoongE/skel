@@ -36,6 +36,7 @@ docker run --gpus all \
   -v /home/$USER/.ssh:/home/$USER/.ssh \
   -v /tmp:/tmp \
   -e TZ=Asia/Seoul \
+  -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics \
   -itd "$IMAGE_NAME" /bin/bash -c "service ssh start; sleep infinity"
 
 # ---------- 2. Root setup (single exec) ----------
@@ -49,10 +50,11 @@ echo 'Asia/Seoul' > /etc/timezone
 
 apt-get update
 apt-get -y install --no-install-recommends \
-  sudo ssh sshfs openssh-server git tree zsh tmux zip rsync systemd vim \
+  sudo openssh-client openssh-server sshfs git tree zsh tmux zip unzip rsync vim \
   wget curl ca-certificates tzdata autojump language-pack-en miller \
   fd-find bat iotop iftop progress net-tools lsof \
-  libglib2.0-0 libaio-dev libnccl2 libnccl-dev
+  libglib2.0-0 libaio-dev libnccl-dev build-essential \
+  libegl1 libgles2 libturbojpeg ffmpeg
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 
@@ -69,9 +71,24 @@ chmod 440 /etc/sudoers.d/$USER
 chown $USER:$USER /home/$USER
 chown -R $USER:$USER /home/$USER/$M_DIR
 
-# Make sshd listen on port 33 (matches '-p \$PORT:33')
-echo 'Port 33' > /etc/ssh/sshd_config.d/port.conf
+# Make sshd listen on port 33 (matches '-p $PORT:33')
+mkdir -p /etc/ssh/sshd_config.d
 
+grep -q '^Include /etc/ssh/sshd_config.d/' /etc/ssh/sshd_config \
+  || sed -i '1i Include /etc/ssh/sshd_config.d/*.conf' /etc/ssh/sshd_config
+
+cat > /etc/ssh/sshd_config.d/00-custom.conf <<'EOF'
+Port 33
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+PermitEmptyPasswords no
+PermitRootLogin no
+UsePAM yes
+EOF
+
+sshd -t
 service ssh restart
 "
 
@@ -81,12 +98,12 @@ docker exec -u "$USER" -w "/home/$USER" -e HOME="/home/$USER" "$CONTAINER_NAME" 
 # UV + system tools
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
-sudo env "PATH=$PATH" uv pip install --system --break-system-packages nvitop tmuxp --torch-backend=auto
+sudo env "PATH=$PATH" uv pip install --system --break-system-packages hf_transfer nvitop tmuxp --torch-backend=auto
 
 # Base venv with torch
 cd ~
 uv venv .venv --prompt base
-uv pip install --python .venv/bin/python torch numpy transformers timm wandb einops datasets accelerate jupyterlab --torch-backend=auto
+uv pip install --python .venv/bin/python torch numpy transformers hf_transfer timm wandb einops datasets accelerate jupyterlab --torch-backend=auto
 
 # Oh-my-zsh (unattended) + syntax-highlighting
 RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended

@@ -1,17 +1,17 @@
 apt-get -y update; apt-get -y upgrade;
 
-apt-get -y install sudo ssh sshfs openssh-server sudo git tree zsh tmux zip rsync systemd vim wget curl tzdata autojump language-pack-en miller fd-find bat iotop iftop progress net-tools lsof libglib2.0-0 libaio-dev libnccl2 libnccl-dev
+apt-get -y install sudo ssh sshfs openssh-server sudo git tree zsh tmux zip rsync systemd vim wget curl tzdata autojump language-pack-en miller fd-find bat iotop iftop progress net-tools lsof libglib2.0-0 libaio-dev libnccl2 libnccl-dev ncurses-term
 # apt-get -y install build-essential ffmpeg libsm6 libxext6 libudev-dev libncurses* texlive-full
 
 apt-get clean autoclean; apt-get -y autoremove --purge
 
 # UV install
 curl -LsSf https://astral.sh/uv/install.sh | sh
-uv pip install --system --break-system-packages nvitop tmuxp --torch-backend=auto
+uv pip install --system --break-system-packages hf_transfer nvitop tmuxp --torch-backend=auto
 
 # Setup default venv and install default torch depend on system cuda version
 uv venv .base_venv --prompt base
-uv pip install --python .base_venv/bin/python numpy torch --torch-backend=auto
+uv pip install --python .base_venv/bin/python hf_transfer numpy torch --torch-backend=auto
 
 # Setup zsh
 sh -c "$(wget https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh -O -)"
