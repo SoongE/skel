@@ -3,6 +3,8 @@ alias das='docker exec -it seungminDock bash'
 alias dim='docker images'
 alias dps='docker ps -a'
 
+alias la='ls -al'
+alias l='ls -al'
 alias cl='clear'
 alias nv='nvitop --interval 1 --colorful'
 alias tl='tmux ls'

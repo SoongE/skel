@@ -33,14 +33,6 @@ echo "🛠️ CLI 도구 설치 중..."
 brew install lsd bat fzf fd ripgrep git-delta btop dust duf neovim starship
 
 # ============================================
-# 5. Oh My Zsh 설치
-# ============================================
-if [ ! -d "$HOME/.oh-my-zsh" ]; then
-  echo "💎 Oh My Zsh 설치 중..."
-  sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-fi
-
-# ============================================
 # 6. Zinit 설치
 # ============================================
 if [ ! -d "$HOME/.local/share/zinit/zinit.git" ]; then
