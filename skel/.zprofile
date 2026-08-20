@@ -15,7 +15,3 @@ fi
 if [ -f ~/.aliases ]; then
     . ~/.aliases
 fi
-
-if [ -f "$HOME/.zshrc" ]; then
-    . "$HOME/.zshrc"
-fi
