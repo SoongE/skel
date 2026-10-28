@@ -1,133 +1,116 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-if [ $# -lt 4 ]; then
-    echo "Usage: $0 <container_name> <host_name> <port> <image_name>"
-    exit 1
+if [[ $# -ne 4 ]]; then
+  echo "Usage: $0 <container_name> <host_name> <port> <image_name>" >&2
+  exit 1
 fi
 
-CONTAINER_NAME=$1
-HOST_NAME=$2
+CONTAINER=$1
+CONTAINER_HOSTNAME=$2
 PORT=$3
-IMAGE_NAME=$4
-PASSWORD=1234
+IMAGE=$4
 
-MY_UID=$(/usr/bin/id -u)
-MY_GID=$(/usr/bin/id -g)
-SHARED_GID=$(getent group shared | cut -d: -f3)
-
-M_DIR=dmount
-PRIVATE=/home/$USER/$M_DIR
+DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+USER_NAME="$(id -un)"
+USER_ID="$(id -u)"
+GROUP_NAME="$(id -gn)"
+GROUP_ID="$(id -g)"
+SHARED_GID="$(getent group shared | cut -d: -f3 || true)"
+CONTAINER_HOME="/home/$USER_NAME"
+PRIVATE="$HOME/dmount"
 SHARED=/var/shared
 
-mkdir -p "$PRIVATE"
+if [[ -z ${CONTAINER_PASSWORD:-} ]]; then
+  read -rsp "Password for $USER_NAME in container: " CONTAINER_PASSWORD
+  echo
+fi
 
-# ---------- 1. Launch container ----------
-echo "====> Launching container '$CONTAINER_NAME'"
+mkdir -p "$PRIVATE" "$HOME/.cache"
+
+volumes=(
+  -v "$PRIVATE:$PRIVATE"
+  -v "$HOME/.cache:$CONTAINER_HOME/.cache"
+  -v "$HOME/.ssh:$CONTAINER_HOME/.ssh"
+  -v /tmp:/tmp
+)
+if [[ -n $SHARED_GID ]]; then
+  volumes+=(-v "$SHARED:$CONTAINER_HOME/shared")
+fi
+
+echo "====> Launching container '$CONTAINER'"
 docker run --gpus all \
   --ipc=host --pid=host \
   --shm-size=10g \
   --ulimit memlock=-1 --ulimit stack=67108864 \
-  --hostname "$HOST_NAME" --name "$CONTAINER_NAME" \
+  --hostname "$CONTAINER_HOSTNAME" --name "$CONTAINER" \
   -p "$PORT":33 \
-  -v "$PRIVATE":"$PRIVATE" \
-  -v "$SHARED":/home/$USER/shared \
-  -v /home/$USER/.cache:/home/$USER/.cache \
-  -v /home/$USER/.ssh:/home/$USER/.ssh \
-  -v /tmp:/tmp \
+  "${volumes[@]}" \
   -e TZ=Asia/Seoul \
   -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics \
-  -itd "$IMAGE_NAME" /bin/bash -c "service ssh start; sleep infinity"
+  -itd "$IMAGE" /bin/bash -c "service ssh start; sleep infinity"
 
-# ---------- 2. Root setup (single exec) ----------
-echo "====> Root setup: apt, user, sudo"
-docker exec "$CONTAINER_NAME" bash -euo pipefail -c "
+trap 'docker exec "$CONTAINER" rm -f "/etc/sudoers.d/$USER_NAME" >/dev/null 2>&1 || true' EXIT
+
+echo "====> Root setup: base packages, user, sshd"
+docker exec \
+  -e USER_NAME="$USER_NAME" -e USER_ID="$USER_ID" \
+  -e GROUP_NAME="$GROUP_NAME" -e GROUP_ID="$GROUP_ID" \
+  -e SHARED_GID="$SHARED_GID" -e CONTAINER_PASSWORD="$CONTAINER_PASSWORD" \
+  "$CONTAINER" bash -euo pipefail -c '
 export DEBIAN_FRONTEND=noninteractive
-
-# Pre-configure timezone
 ln -sf /usr/share/zoneinfo/Asia/Seoul /etc/localtime
-echo 'Asia/Seoul' > /etc/timezone
+echo Asia/Seoul > /etc/timezone
 
 apt-get update
-apt-get -y install --no-install-recommends \
-  sudo openssh-client openssh-server sshfs git tree zsh tmux zip unzip rsync vim \
-  wget curl ca-certificates tzdata autojump language-pack-en miller \
-  fd-find bat iotop iftop progress net-tools lsof \
-  libglib2.0-0 libaio-dev libnccl-dev build-essential \
-  libegl1 libgles2 libturbojpeg ffmpeg
-apt-get clean
-rm -rf /var/lib/apt/lists/*
+apt-get install -y --no-install-recommends sudo zsh git curl ca-certificates openssh-server
 
-groupadd -g $MY_GID $USER
-useradd -m -u $MY_UID -g $MY_GID -s /bin/zsh $USER
-groupadd --gid $SHARED_GID shared
-usermod -aG sudo,shared $USER
-echo '$USER:$PASSWORD' | chpasswd
+existing_user="$(getent passwd "$USER_ID" | cut -d: -f1 || true)"
+if [[ -n $existing_user && $existing_user != "$USER_NAME" ]]; then
+  userdel "$existing_user"
+fi
+existing_group="$(getent group "$GROUP_ID" | cut -d: -f1 || true)"
+if [[ -z $existing_group ]]; then
+  groupadd -g "$GROUP_ID" "$GROUP_NAME"
+elif [[ $existing_group != "$GROUP_NAME" ]]; then
+  groupmod -n "$GROUP_NAME" "$existing_group"
+fi
+id -u "$USER_NAME" >/dev/null 2>&1 || useradd -M -d "/home/$USER_NAME" -u "$USER_ID" -g "$GROUP_ID" -s /bin/zsh "$USER_NAME"
+usermod -aG sudo "$USER_NAME"
+if [[ -n $SHARED_GID ]]; then
+  getent group shared >/dev/null || groupadd -g "$SHARED_GID" shared
+  usermod -aG shared "$USER_NAME"
+fi
+echo "$USER_NAME:$CONTAINER_PASSWORD" | chpasswd
 
-# Passwordless sudo for the rest of setup
-echo '$USER ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/$USER
-chmod 440 /etc/sudoers.d/$USER
+echo "$USER_NAME ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$USER_NAME"
+chmod 440 "/etc/sudoers.d/$USER_NAME"
 
-chown $USER:$USER /home/$USER
-chown -R $USER:$USER /home/$USER/$M_DIR
+mkdir -p "/home/$USER_NAME"
+chown "$USER_NAME:$GROUP_NAME" "/home/$USER_NAME"
 
-# Make sshd listen on port 33 (matches '-p $PORT:33')
 mkdir -p /etc/ssh/sshd_config.d
-
-grep -q '^Include /etc/ssh/sshd_config.d/' /etc/ssh/sshd_config \
-  || sed -i '1i Include /etc/ssh/sshd_config.d/*.conf' /etc/ssh/sshd_config
-
-cat > /etc/ssh/sshd_config.d/00-custom.conf <<'EOF'
+grep -q "^Include /etc/ssh/sshd_config.d/" /etc/ssh/sshd_config \
+  || sed -i "1i Include /etc/ssh/sshd_config.d/*.conf" /etc/ssh/sshd_config
+cat > /etc/ssh/sshd_config.d/00-custom.conf <<EOF
 Port 33
 PubkeyAuthentication yes
 PasswordAuthentication no
 KbdInteractiveAuthentication no
-ChallengeResponseAuthentication no
 PermitEmptyPasswords no
 PermitRootLogin no
 UsePAM yes
 EOF
-
 service ssh restart
-"
-
-# ---------- 3. User setup (single exec as $USER) ----------
-echo "====> User setup: uv, venv, oh-my-zsh, dotfiles"
-docker exec -u "$USER" -w "/home/$USER" -e HOME="/home/$USER" "$CONTAINER_NAME" bash -euo pipefail -c '
-# UV + system tools
-curl -LsSf https://astral.sh/uv/install.sh | sh
-export PATH="$HOME/.local/bin:$PATH"
-sudo env "PATH=$PATH" uv pip install --system --break-system-packages hf_transfer nvitop tmuxp --torch-backend=auto
-
-# Base venv with torch
-cd ~
-uv venv .base_venv --prompt base
-uv pip install --python .base_venv/bin/python torch numpy transformers hf_transfer timm wandb einops datasets accelerate jupyterlab ipykernel --torch-backend=auto
-
-# Oh-my-zsh (unattended) + syntax-highlighting
-RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting.git \
-  ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-
-# Dotfiles from SoongE/skel
-git clone --depth=1 https://github.com/SoongE/skel.git
-rm -rf .profile .bashrc .bash_history .zshrc .zprofile .zcompdump*
-cp -rT skel/skel .
-sudo rm -rf /etc/skel
-sudo cp -r skel/skel /etc/skel
-sudo cp -r .oh-my-zsh /etc/skel
-sudo mkdir -p /usr/share/fonts/truetype/
-sudo mv skel/helvetica-neue /usr/share/fonts/truetype/
-rm -rf skel
-
-# fd / bat shims
-mkdir -p ~/.local/bin
-ln -sf "$(command -v fdfind)" ~/.local/bin/fd
-ln -sf "$(command -v batcat)" ~/.local/bin/bat
 '
 
-# ---------- 4. Restore password-required sudo ----------
-echo "====> Restoring password-required sudo"
-docker exec "$CONTAINER_NAME" rm -f "/etc/sudoers.d/$USER"
+echo "====> Copying dotfiles"
+docker cp "$DOTFILES" "$CONTAINER:$CONTAINER_HOME/.dotfiles"
+docker exec "$CONTAINER" chown -R "$USER_NAME:$GROUP_NAME" "$CONTAINER_HOME/.dotfiles"
 
-echo "Done! Container '$CONTAINER_NAME' is ready on port $PORT."
+echo "====> User setup"
+docker exec -u "$USER_NAME" -w "$CONTAINER_HOME" -e HOME="$CONTAINER_HOME" -e USER="$USER_NAME" \
+  "$CONTAINER" "$CONTAINER_HOME/.dotfiles/install.sh"
+docker exec "$CONTAINER" rm -rf "$CONTAINER_HOME/.dotfiles"
+
+echo "Done! Container '$CONTAINER' is ready on port $PORT."

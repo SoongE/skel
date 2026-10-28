@@ -1,0 +1,58 @@
+if (( $+commands[lsd] )); then
+  alias ls='lsd'
+  alias la='lsd -al --icon never'
+  alias lt='lsd --tree --icon never'
+else
+  alias la='ls -al'
+fi
+alias l='la'
+alias cl='clear'
+
+(( $+commands[btop] )) && alias top='btop'
+(( $+commands[duf] )) && alias df='duf'
+(( $+commands[nvim] )) && alias vim='nvim'
+(( $+commands[nvitop] )) && alias nv='nvitop --interval 1 --colorful'
+
+alias dai='docker exec -it seungminDockImp bash'
+alias das='docker exec -it seungminDock bash'
+alias dim='docker images'
+alias dps='docker ps -a'
+
+alias tl='tmux ls'
+alias ta='tmux attach -t'
+alias tn='tmux new -s'
+alias tk='tmux kill-session'
+alias xl='tmuxp load'
+
+alias gs='git status'
+alias gm='git commit -m'
+alias gp='git push'
+alias ga='git add'
+alias gal='git add .'
+alias gd='git diff'
+
+alias pt='python3'
+alias ur='uv run python'
+alias sd='deactivate'
+
+function so {
+  local dir=$PWD
+  while [[ -n $dir ]]; do
+    if [[ -f $dir/.venv/bin/activate ]]; then
+      source "$dir/.venv/bin/activate"
+      return
+    fi
+    dir=${dir%/*}
+  done
+  source ~/.base_venv/bin/activate
+}
+
+alias pp='mlr --icsv --opprint --barred cat'
+alias ppl='mlr --l2c --opprint --barred cat'
+alias rs='rsync -avhP'
+alias rsp='rsync -ah --partial --info=progress2 --stats'
+
+if [[ $OSTYPE == darwin* ]]; then
+  alias til='watch -c -n 1 view_tmux'
+  alias jp='jupyter notebook --NotebookApp.token="" --NotebookApp.password=""'
+fi

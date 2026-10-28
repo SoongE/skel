@@ -1,0 +1,14 @@
+[user]
+	name = SoongE
+	email = oh1.seungmin@gmail.com
+[pull]
+	rebase = false
+[core]
+	autocrlf = input
+	excludesFile = ~/.gitignore
+	pager = delta
+[interactive]
+	diffFilter = delta --color-only
+[delta]
+	navigate = true
+	side-by-side = true

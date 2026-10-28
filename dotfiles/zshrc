@@ -1,0 +1,78 @@
+export VIRTUAL_ENV_DISABLE_PROMPT=1
+
+case $OSTYPE in
+  linux*)
+    export LANG=en_US.UTF-8
+    export LC_ALL=en_US.UTF-8
+
+    export CUDA_DEVICE_ORDER=PCI_BUS_ID
+    export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+    export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+    export VLLM_WORKER_MULTIPROC_METHOD=spawn
+    export TOKENIZERS_PARALLELISM=false
+
+    export SHOW_HOSTNAME=1
+    ;;
+  darwin*)
+    setopt SHARE_HISTORY
+    (( $+commands[vivid] )) && export LS_COLORS="$(vivid generate catppuccin-mocha):di=1;38;5;117:ln=38;5;180"
+    ;;
+esac
+
+# ── history ──────────────────────────────────────────
+HISTFILE=~/.zsh_history
+HISTSIZE=100000
+SAVEHIST=100000
+setopt HIST_IGNORE_DUPS HIST_IGNORE_SPACE HIST_REDUCE_BLANKS
+setopt EXTENDED_HISTORY INC_APPEND_HISTORY
+setopt AUTO_CD INTERACTIVE_COMMENTS
+
+# 화살표 위/아래 = 입력한 접두어로 히스토리 검색
+autoload -U up-line-or-beginning-search down-line-or-beginning-search
+zle -N up-line-or-beginning-search
+zle -N down-line-or-beginning-search
+for _km in emacs viins; do
+  bindkey -M $_km '^[[A' up-line-or-beginning-search
+  bindkey -M $_km '^[OA' up-line-or-beginning-search
+  bindkey -M $_km '^[[B' down-line-or-beginning-search
+  bindkey -M $_km '^[OB' down-line-or-beginning-search
+  [[ -n ${terminfo[kcuu1]} ]] && bindkey -M $_km "${terminfo[kcuu1]}" up-line-or-beginning-search
+  [[ -n ${terminfo[kcud1]} ]] && bindkey -M $_km "${terminfo[kcud1]}" down-line-or-beginning-search
+done
+unset _km
+
+# ── zinit ────────────────────────────────────────────
+ZINIT_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/zinit/zinit.git"
+[[ -d $ZINIT_HOME ]] || git clone --depth=1 https://github.com/zdharma-continuum/zinit "$ZINIT_HOME"
+source "$ZINIT_HOME/zinit.zsh"
+autoload -Uz _zinit
+(( ${+_comps} )) && _comps[zinit]=_zinit
+
+zinit light zsh-users/zsh-completions
+mkdir -p ~/.cache
+autoload -Uz compinit && compinit -d ~/.cache/zcompdump
+zstyle ':completion:*' menu select
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z-_}={A-Za-z_-}' 'r:|=*' 'l:|=* r:|=*'
+
+# ── autojump ─────────────────────────────────────────
+for _aj in /usr/share/autojump/autojump.sh /opt/homebrew/etc/profile.d/autojump.sh; do
+  [[ -f $_aj ]] && source $_aj && break
+done
+unset _aj
+
+# ── aliases ──────────────────────────────────────────
+[[ -f ~/.aliases ]] && source ~/.aliases
+[[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
+
+# ── prompt ───────────────────────────────────────────
+(( $+commands[starship] )) && eval "$(starship init zsh)"
+
+# ── turn off mouse reporting ─────────────────────────
+autoload -Uz add-zsh-hook
+_reset_input_modes() {
+  printf '\e[?1000l\e[?1002l\e[?1003l\e[?1006l\e[?1015l\e[?1004l'
+}
+add-zsh-hook precmd _reset_input_modes
+
+# ── syntax highlighting (반드시 마지막) ──────────────
+zinit light zdharma-continuum/fast-syntax-highlighting

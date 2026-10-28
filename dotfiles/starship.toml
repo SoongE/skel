@@ -1,9 +1,11 @@
+add_newline = false
 "$schema" = 'https://starship.rs/config-schema.json'
 
 format = """
 [▒▓](#a3aed2)\
 $os\
 $username\
+$hostname\
 [](bg:#769ff0 fg:#a3aed2)\
 $directory\
 [](fg:#769ff0 bg:#394260)\
@@ -20,6 +22,7 @@ style = "fg:#e3e5e5 bg:#769ff0"
 format = "[ $path ]($style)"
 truncation_length = 3
 truncation_symbol = "…/"
+truncate_to_repo = false
 
 [directory.substitutions]
 "Documents" = "󰈙 "
@@ -44,7 +47,7 @@ format = '[ ${symbol}${version} (${virtualenv} )]($style)'
 
 [time]
 disabled = false
-time_format = "%R" # Hour:Minute Format
+time_format = "%R"
 style = "bg:#1d2230"
 format = '[[  $time ](fg:#a0a9cb bg:#1d2230)]($style)'
 
@@ -82,3 +85,10 @@ show_always = true
 style_user = "bg:#a3aed2 fg:#090c0c"
 style_root = "bg:#a3aed2 fg:#090c0c"
 format = '[$user]($style)'
+
+[hostname]
+ssh_only = false
+detect_env_vars = ["SHOW_HOSTNAME"]
+style = "bg:#a3aed2 fg:#090c0c"
+format = '[@$hostname]($style)'
+
