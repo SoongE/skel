@@ -3,7 +3,6 @@ add_newline = false
 
 format = """
 [▒▓](#a3aed2)\
-$os\
 $username\
 $hostname\
 [](bg:#769ff0 fg:#a3aed2)\
