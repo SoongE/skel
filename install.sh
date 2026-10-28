@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uEo pipefail
 
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OS="$(uname -s)"
@@ -37,9 +37,34 @@ for arg in "$@"; do
 done
 
 log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;31m==>\033[0m %s\n' "$*" >&2; }
+
+FAILED_STEPS=()
+STEP_FAILED=0
+
+on_error() {
+  local status=$? cmd=$BASH_COMMAND caller=${FUNCNAME[1]:-}
+  STEP_FAILED=1
+  case $caller in step | on_error) return 0 ;; esac
+  case $cmd in return*) return 0 ;; esac
+  case $(type -t -- "${cmd%% *}" 2>/dev/null || true) in function) return 0 ;; esac
+  warn "Failed (exit $status): $cmd"
+}
+trap on_error ERR
+
+step() {
+  STEP_FAILED=0
+  "$@"
+  if [[ $STEP_FAILED -eq 1 ]]; then FAILED_STEPS+=("$1"); fi
+}
 
 as_root() {
-  if [[ $EUID -eq 0 ]]; then "$@"; else sudo "$@"; fi
+  local status=0
+  if [[ $EUID -eq 0 ]]; then "$@" || status=$?; else sudo "$@" || status=$?; fi
+  if [[ $status -ne 0 ]]; then
+    warn "Failed (exit $status): $*"
+    return "$status"
+  fi
 }
 
 place() {
@@ -144,6 +169,11 @@ install_macos() {
   fi
 }
 
+load_zsh_plugins() {
+  log "Loading zsh plugins"
+  zsh -i -c true </dev/null
+}
+
 install_dotfiles() {
   if [[ $LINK -eq 1 ]]; then log "Linking dotfiles"; else log "Copying dotfiles"; fi
   place zshenv "$HOME/.zshenv"
@@ -159,16 +189,16 @@ install_dotfiles() {
 
 case $OS in
   Linux)
-    if [[ $APT -eq 1 ]]; then install_apt_packages; fi
-    install_starship
-    install_uv
-    install_uv_tools
-    if [[ $PYTHON -eq 1 ]]; then setup_base_venv; fi
-    install_fonts
-    set_login_shell
+    if [[ $APT -eq 1 ]]; then step install_apt_packages; fi
+    step install_starship
+    step install_uv
+    step install_uv_tools
+    if [[ $PYTHON -eq 1 ]]; then step setup_base_venv; fi
+    step install_fonts
+    step set_login_shell
     ;;
   Darwin)
-    install_macos
+    step install_macos
     ;;
   *)
     echo "Unsupported OS: $OS" >&2
@@ -176,9 +206,11 @@ case $OS in
     ;;
 esac
 
-install_dotfiles
+step install_dotfiles
+step load_zsh_plugins
 
-log "Loading zsh plugins"
-zsh -i -c true </dev/null
-
+if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
+  warn "Finished with errors in: ${FAILED_STEPS[*]}"
+  exit 1
+fi
 log "Done. Open a new shell to apply."
